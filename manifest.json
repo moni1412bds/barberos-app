@@ -1,15 +1,16 @@
 {
+  "id": "/barberos-app/",
   "short_name": "Barberos",
   "name": "Barbería - Panel Barberos",
   "icons": [
     {
       "src": "icon.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ],
-  "start_url": "./index.html",
+  "start_url": "/barberos-app/",
+  "scope": "/barberos-app/",
   "background_color": "#1e293b",
   "theme_color": "#1e293b",
   "display": "standalone",
