@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Barbería - App Barberos</title>
+
+    <!-- Integración PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    
+    <!-- Configuración para iOS (Safari) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Barbero App">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <!-- Configuración para Android / Chrome Web App -->
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- REGISTRO DE SERVICE WORKER PARA PERMITIR INSTALACIÓN PWA NATIVA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `
+                    self.addEventListener('install', (e) => self.skipWaiting());
+                    self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+                    self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request)));
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+
+                navigator.serviceWorker.register(swUrl)
+                    .then(reg => console.log('Service Worker de Barberos activo correctamente'))
+                    .catch(err => console.error('Error al registrar Service Worker:', err));
+            });
+        }
+    </script>
+
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f1f5f9; margin: 0; padding: 12px; color: #334155; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
+        h1 { margin: 0; color: #1e293b; font-size: 1.2rem; }
+        .user-badge { background: #e2e8f0; padding: 4px 10px; border-radius: 15px; font-weight: bold; font-size: 0.8rem; color: #334155; }
+
+        /* GRILLA DE TARJETAS */
+        .cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .card-stat { padding: 12px; border-radius: 10px; color: white; text-align: center; }
+        .card-total { background: #1e293b; }
+        .card-barbero { background: #10b981; }
+        .card-stat h3 { margin: 0; font-size: 0.9rem; opacity: 0.9; }
+        .card-stat .amount { font-size: 1.5rem; font-weight: bold; margin: 4px 0; }
+        .card-stat .subtext { font-size: 0.75rem; opacity: 0.9; line-height: 1.3; }
+
+        .input-section { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 12px; }
+        .input-group { display: flex; flex-direction: column; gap: 4px; }
+        label { font-weight: 600; font-size: 0.85rem; }
+        select, input, button { padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 1rem; width: 100%; }
+
+        .checkbox-group { display: flex; align-items: center; gap: 10px; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; cursor: pointer; }
+        .checkbox-group input { width: 18px; height: 18px; }
+
+        button.btn-primary { background-color: #10b981; color: white; border: none; cursor: pointer; font-weight: bold; font-size: 1rem; }
+        button.btn-logout { background: #ef4444; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
+
+        /* LISTA DE CORTES */
+        .history-section { margin-top: 10px; }
+        .history-section h2 { font-size: 1rem; color: #1e293b; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+        .corte-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #f1f5f9; background: #fff; border-radius: 8px; margin-bottom: 6px; border: 1px solid #e2e8f0; }
+        .corte-info { display: flex; flex-direction: column; gap: 2px; }
+        .corte-hora { font-size: 0.75rem; color: #64748b; }
+        .corte-monto { font-weight: bold; color: #0f172a; font-size: 0.95rem; }
+        
+        /* BOTONES DE ACCIÓN */
+        .corte-acciones { display: flex; gap: 6px; align-items: center; }
+        .btn-action { width: 36px; height: 32px; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; }
+        .btn-edit { background-color: #f59e0b; }
+        .btn-delete { background-color: #ef4444; }
+
+        .badge-pago { font-size: 0.7rem; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
+        .badge-efectivo { background: #dcfce7; color: #15803d; }
+        .badge-transferencia { background: #dbeafe; color: #1e40af; }
+
+        .login-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1e293b; display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
+        .login-box { background: white; padding: 25px; border-radius: 12px; width: 100%; max-width: 360px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<!-- PANTALLA DE LOGIN -->
+<div class="login-bg" id="loginScreen">
+    <div class="login-box">
+        <h2 style="margin-top:0; color:#1e293b;">✂️ Acceso Barberos</h2>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <input type="email" id="loginEmail" placeholder="Correo electrónico...">
+            <input type="password" id="loginPassword" placeholder="Contraseña...">
+            <button class="btn-primary" style="background:#1e293b;" onclick="iniciarSesion()">Ingresar</button>
+            <p id="loginError" style="color:#ef4444; font-size:0.8rem; margin:0; display:none;"></p>
+        </div>
+    </div>
+</div>
+
+<!-- CONTENIDO PRINCIPAL -->
+<div class="container" id="mainContent" style="display: none;">
+    <div class="header">
+        <h1>✂️ Mi Panel</h1>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span class="user-badge" id="nombreUsuario">Peluquero</span>
+            <button class="btn-logout" onclick="cerrarSesion()">Salir</button>
+        </div>
+    </div>
+
+    <!-- TARJETAS DE RESUMEN -->
+    <div class="cards-grid">
+        <div class="card-stat card-total">
+            <h3>Total Hoy</h3>
+            <div class="amount" id="lblTotalHoy">$0</div>
+            <div class="subtext" id="lblDetalleTotal">0 cortes | Prom: $0<br>Ef: $0 | Tr: $0</div>
+        </div>
+
+        <div class="card-stat card-barbero">
+            <h3 id="lblNombreBarbero">Mi Total</h3>
+            <div class="amount" id="lblTotalBarbero">$0</div>
+            <div class="subtext" id="lblDetalleBarbero">0 cortes | Prom: $0<br>Ef: $0 | Tr: $0</div>
+        </div>
+    </div>
+
+    <!-- FORMULARIO CORTES -->
+    <div class="input-section">
+        <div class="input-group">
+            <label for="peluquero">Peluquero Que Registra</label>
+            <select id="peluquero"></select>
+        </div>
+        <div class="input-group">
+            <label for="monto">Monto del Corte ($)</label>
+            <input type="number" id="monto" value="10000" step="1000">
+        </div>
+        <div class="checkbox-group" onclick="document.getElementById('esTransferencia').click(); event.stopPropagation();">
+            <input type="checkbox" id="esTransferencia" onclick="event.stopPropagation();">
+            <label for="esTransferencia">💳 Transferencia / MercadoPago</label>
+        </div>
+        <button class="btn-primary" onclick="agregarCorte()">+ REGISTRAR CORTE</button>
+    </div>
+
+    <!-- LISTA DE CORTES REGISTRADOS -->
+    <div class="history-section">
+        <h2>📋 Cortes de Hoy</h2>
+        <div id="listaCortes">
+            <p style="text-align:center; color:#94a3b8; font-size:0.85rem;">Cargando registros...</p>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDr2WkcTIkK65JAnbY1F9kRmesUgFYezW4",
+        authDomain: "barberiacontrol-c7731.firebaseapp.com",
+        projectId: "barberiacontrol-c7731",
+        storageBucket: "barberiacontrol-c7731.firebasestorage.app",
+        messagingSenderId: "411795215845",
+        appId: "1:411795215845:web:9b6a58289e8b4614f8cb0c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // ACTIVAR PERSISTENCIA OFFLINE EN FIRESTORE CON MANEJO DE EXCEPCIONES
+    enableIndexedDbPersistence(db).catch((err) => {
+        if (err.code === 'failed-precondition') {
+            console.warn('Persistencia Firestore: Múltiples pestañas abiertas a la vez.');
+        } else if (err.code === 'unimplemented') {
+            console.warn('El navegador actual no soporta almacenamiento IndexedDB.');
+        }
+    });
+
+    let usuarioActual = null;
+    window.listaBarberos = JSON.parse(localStorage.getItem('barberos_cache') || '[]');
+    window.registrosHoy = JSON.parse(localStorage.getItem('registros_hoy_cache') || '[]');
+
+    // FUNCIÓN DE AUDITORÍA/LOGS
+    async function registrarLog(accion, detalle) {
+        const usuarioEmail = auth.currentUser ? auth.currentUser.email : 'desconocido';
+        const horaFecha = new Date().toLocaleString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit' });
+        try {
+            await addDoc(collection(db, "logsActividad"), {
+                usuario: usuarioEmail,
+                accion: accion,
+                detalle: detalle,
+                fechaTexto: horaFecha,
+                timestamp: Date.now()
+            });
+        } catch (e) {
+            console.error("Error guardando log de auditoría:", e);
+        }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            usuarioActual = user;
+            localStorage.setItem('user_email_cache', user.email);
+            const emailNombre = user.email.split('@')[0];
+            document.getElementById('nombreUsuario').innerText = emailNombre.toUpperCase();
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            iniciarEscuchadores();
+        } else {
+            usuarioActual = null;
+            localStorage.removeItem('user_email_cache');
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('mainContent').style.display = 'none';
+        }
+    });
+
+    window.iniciarSesion = async function() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const pass = document.getElementById('loginPassword').value.trim();
+        const errTxt = document.getElementById('loginError');
+        try {
+            errTxt.style.display = 'none';
+            await signInWithEmailAndPassword(auth, email, pass);
+        } catch (err) {
+            errTxt.innerText = "Error: Usuario o clave incorrecta";
+            errTxt.style.display = 'block';
+        }
+    };
+
+    window.cerrarSesion = () => {
+        localStorage.clear();
+        signOut(auth);
+    };
+
+    function iniciarEscuchadores() {
+        onSnapshot(doc(db, "configuracion", "barberos"), (docSnap) => {
+            if (docSnap.exists() && docSnap.data().lista) {
+                window.listaBarberos = docSnap.data().lista;
+                localStorage.setItem('barberos_cache', JSON.stringify(window.listaBarberos));
+            }
+            actualizarSelectoresBarberos();
+        });
+
+        onSnapshot(collection(db, "cortesHoy"), (snapshot) => {
+            window.registrosHoy = [];
+            snapshot.forEach((doc) => window.registrosHoy.push({ id: doc.id, ...doc.data() }));
+            localStorage.setItem('registros_hoy_cache', JSON.stringify(window.registrosHoy));
+            actualizarTarjetasYLista();
+        });
+    }
+
+    function actualizarSelectoresBarberos() {
+        const select = document.getElementById('peluquero');
+        select.innerHTML = '';
+        const cachedEmail = localStorage.getItem('user_email_cache');
+        const emailNombre = usuarioActual ? usuarioActual.email.split('@')[0].toLowerCase() : (cachedEmail ? cachedEmail.split('@')[0].toLowerCase() : '');
+        
+        window.listaBarberos.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.toLowerCase();
+            opt.textContent = b.charAt(0).toUpperCase() + b.slice(1);
+            if (b.toLowerCase() === emailNombre) opt.selected = true;
+            select.appendChild(opt);
+        });
+    }
+
+    function actualizarTarjetasYLista() {
+        const cachedEmail = localStorage.getItem('user_email_cache');
+        if (!usuarioActual && !cachedEmail) return;
+        const cortes = window.registrosHoy.filter(r => r.tipo !== 'gasto');
+
+        // 1. TOTAL GENERAL DE LA BARBERÍA (100%)
+        const totalGeneral = cortes.reduce((acc, c) => acc + c.monto, 0);
+        const cantGeneral = cortes.length;
+        const promGeneral = cantGeneral > 0 ? Math.round(totalGeneral / cantGeneral) : 0;
+        const efGeneral = cortes.filter(c => c.metodo === 'efectivo').reduce((acc, c) => acc + c.monto, 0);
+        const trGeneral = cortes.filter(c => c.metodo === 'transferencia').reduce((acc, c) => acc + c.monto, 0);
+
+        document.getElementById('lblTotalHoy').innerText = `$${totalGeneral.toLocaleString()}`;
+        document.getElementById('lblDetalleTotal').innerHTML = `${cantGeneral} cortes | Prom: $${promGeneral.toLocaleString()}<br>Ef: $${efGeneral.toLocaleString()} | Tr: $${trGeneral.toLocaleString()}`;
+
+        // 2. TOTAL DEL BARBERO CON EL 50% APLICADO
+        const currentEmail = usuarioActual ? usuarioActual.email : cachedEmail;
+        const barberoKey = document.getElementById('peluquero').value || currentEmail.split('@')[0].toLowerCase();
+        const misCortes = cortes.filter(c => c.peluquero && c.peluquero.toLowerCase() === barberoKey);
+        
+        const recaudadoBarbero = misCortes.reduce((acc, c) => acc + c.monto, 0);
+        const totalBarbero50 = Math.round(recaudadoBarbero * 0.5); // 50% para el barbero
+        
+        const cantBarbero = misCortes.length;
+        const promBarbero50 = cantBarbero > 0 ? Math.round(totalBarbero50 / cantBarbero) : 0;
+        
+        const efBarbero50 = Math.round(misCortes.filter(c => c.metodo === 'efectivo').reduce((acc, c) => acc + c.monto, 0) * 0.5);
+        const trBarbero50 = Math.round(misCortes.filter(c => c.metodo === 'transferencia').reduce((acc, c) => acc + c.monto, 0) * 0.5);
+
+        const nombreFormateado = barberoKey.charAt(0).toUpperCase() + barberoKey.slice(1);
+        document.getElementById('lblNombreBarbero').innerText = nombreFormateado;
+        document.getElementById('lblTotalBarbero').innerText = `$${totalBarbero50.toLocaleString()}`;
+        document.getElementById('lblDetalleBarbero').innerHTML = `${cantBarbero} cortes | Prom: $${promBarbero50.toLocaleString()}<br>Ef: $${efBarbero50.toLocaleString()} | Tr: $${trBarbero50.toLocaleString()}`;
+
+        // 3. RENDERIZAR LISTA DE CORTES
+        const contenedorLista = document.getElementById('listaCortes');
+        contenedorLista.innerHTML = '';
+
+        if (misCortes.length === 0) {
+            contenedorLista.innerHTML = `<p style="text-align:center; color:#94a3b8; font-size:0.85rem;">No hay cortes registrados hoy para ${nombreFormateado}.</p>`;
+            return;
+        }
+
+        misCortes.sort((a, b) => b.timestamp - a.timestamp);
+
+        misCortes.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'corte-item';
+            
+            const esEf = item.metodo === 'efectivo';
+            const badgeClass = esEf ? 'badge-efectivo' : 'badge-transferencia';
+            const badgeTexto = esEf ? 'EFECTIVO' : 'TRANSFERENCIA';
+
+            div.innerHTML = `
+                <div class="corte-info">
+                    <div>
+                        <span class="corte-monto">$${item.monto.toLocaleString()}</span>
+                        <span class="badge-pago ${badgeClass}">${badgeTexto}</span>
+                    </div>
+                    <span class="corte-hora">⏰ ${item.hora || 'S/H'}</span>
+                </div>
+                <div class="corte-acciones">
+                    <button class="btn-action btn-edit" onclick="editarRegistro('${item.id}', ${item.monto}, '${item.metodo}')" title="Editar corte">✏️</button>
+                    <button class="btn-action btn-delete" onclick="borrarRegistro('${item.id}', ${item.monto})" title="Eliminar corte">✕</button>
+                </div>
+            `;
+            contenedorLista.appendChild(div);
+        });
+    }
+
+    // REGISTRAR NUEVO CORTE
+    window.agregarCorte = async function() {
+        const peluquero = document.getElementById('peluquero').value;
+        const monto = parseFloat(document.getElementById('monto').value);
+        const esTransferencia = document.getElementById('esTransferencia').checked;
+        const medio = esTransferencia ? 'transferencia' : 'efectivo';
+
+        if (isNaN(monto) || monto <= 0) return alert('Ingrese un monto válido');
+
+        const hora = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+        await addDoc(collection(db, "cortesHoy"), {
+            tipo: 'corte',
+            peluquero: peluquero,
+            monto: monto,
+            hora: hora,
+            metodo: medio,
+            timestamp: Date.now()
+        });
+
+        // 📜 AUDITORÍA: Registrar la creación del corte desde la App Barberos
+        registrarLog('CREAR_CORTE', `Registró un corte de $${monto} (${medio}) asignado al peluquero: ${peluquero.toUpperCase()}`);
+
+        document.getElementById('esTransferencia').checked = false;
+    };
+
+    // EDITAR CORTE (MONTO Y METODO DE PAGO)
+    window.editarRegistro = async function(idCorte, montoActual, metodoActual) {
+        const regAnterior = window.registrosHoy.find(r => r.id === idCorte);
+        const entradaMonto = prompt(`Monto actual: $${montoActual}\n\n• Ingresá el nuevo monto (ej: 8000)\n• O ingresá el descuento en % (ej: 20%):`, montoActual);
+        
+        if (entradaMonto === null) return;
+
+        let nuevoMonto = 0;
+        const entradaLimpia = entradaMonto.trim();
+
+        if (entradaLimpia.endsWith('%')) {
+            const porcentaje = parseFloat(entradaLimpia.replace('%', ''));
+            if (isNaN(porcentaje) || porcentaje < 0 || porcentaje > 100) {
+                alert('Porcentaje inválido');
+                return;
+            }
+            nuevoMonto = montoActual - (montoActual * (porcentaje / 100));
+        } else {
+            nuevoMonto = parseFloat(entradaLimpia);
+        }
+
+        if (isNaN(nuevoMonto) || nuevoMonto <= 0) {
+            alert('Monto no válido');
+            return;
+        }
+
+        const cambiarPago = confirm(`El medio de pago actual es: ${metodoActual.toUpperCase()}.\n\n¿Deseas cambiarlo a ${(metodoActual === 'efectivo' ? 'TRANSFERENCIA' : 'EFECTIVO')}?`);
+        const nuevoMetodo = cambiarPago ? (metodoActual === 'efectivo' ? 'transferencia' : 'efectivo') : metodoActual;
+
+        try {
+            await updateDoc(doc(doc(db, "cortesHoy", idCorte)), {
+                monto: Math.round(nuevoMonto),
+                metodo: nuevoMetodo
+            });
+
+            // 📜 AUDITORÍA: Registrar edición desde la App Barberos
+            const peluqueroNombre = regAnterior ? regAnterior.peluquero : 'desconocido';
+            registrarLog('EDITAR_CORTE', `Editó corte de ${peluqueroNombre}. Antes: $${montoActual} (${metodoActual}) ➔ Ahora: $${Math.round(nuevoMonto)} (${nuevoMetodo})`);
+
+        } catch (err) {
+            alert('Error al actualizar el registro: ' + err.message);
+        }
+    };
+
+    // ELIMINAR CORTE
+    window.borrarRegistro = async function(idCorte, monto) {
+        const regAnterior = window.registrosHoy.find(r => r.id === idCorte);
+        const confirmar = confirm(`¿Estás seguro de eliminar este corte de $${monto.toLocaleString()}?\n\nEsta acción no se puede deshacer.`);
+        if (confirmar) {
+            try {
+                await deleteDoc(doc(doc(db, "cortesHoy", idCorte)));
+
+                // 📜 AUDITORÍA: Registrar borrado desde la App Barberos
+                if (regAnterior) {
+                    registrarLog('ELIMINAR_CORTE', `Eliminó el corte de $${regAnterior.monto} (${regAnterior.metodo}) asignado a ${regAnterior.peluquero}`);
+                }
+            } catch (err) {
+                alert('Error al eliminar el corte: ' + err.message);
+            }
+        }
+    };
+
+    document.getElementById('peluquero').addEventListener('change', actualizarTarjetasYLista);
+</script>
+</body>
+</html>
