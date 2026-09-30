@@ -18,20 +18,12 @@
     <!-- Configuración para Android / Chrome Web App -->
     <meta name="mobile-web-app-capable" content="yes">
 
-    <!-- REGISTRO DE SERVICE WORKER PARA PERMITIR INSTALACIÓN PWA NATIVA -->
+    <!-- REGISTRO DE SERVICE WORKER FÍSICO (sw.js) PARA INSTALACIÓN NATIVA -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                const swCode = `
-                    self.addEventListener('install', (e) => self.skipWaiting());
-                    self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
-                    self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request)));
-                `;
-                const blob = new Blob([swCode], { type: 'application/javascript' });
-                const swUrl = URL.createObjectURL(blob);
-
-                navigator.serviceWorker.register(swUrl)
-                    .then(reg => console.log('Service Worker de Barberos activo correctamente'))
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker de Barberos activo correctamente desde sw.js'))
                     .catch(err => console.error('Error al registrar Service Worker:', err));
             });
         }
