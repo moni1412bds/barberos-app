@@ -18,248 +18,6 @@
     <!-- Configuración para Android / Chrome Web App -->
     <meta name="mobile-web-app-capable" content="yes">
 
-    <!-- REGISTRO DE SERVICE WORKER CON SOPORTE OFFLINE Y REFRESH AUTOMÁTICO -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => {
-                        console.log('Service Worker registrado correctamente:', reg.scope);
-                        
-                        // Si hay un Service Worker esperando para activarse, forzar el uso
-                        if (reg.waiting) {
-                            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                        }
-
-                        reg.onupdatefound = () => {
-                            const installingWorker = reg.installing;
-                            installingWorker.onstatechange = () => {
-                                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    console.log('Nueva versión disponible. Actualizando...');
-                                }
-                            };
-                        };
-                    })
-                    .catch(err => console.error('Error al registrar Service Worker:', err));
-            });
-
-            // Recargar la página automáticamente cuando el Service Worker se actualice
-            let refreshing = false;
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (!refreshing) {
-                    refreshing = true;
-                    window.location.reload();
-                }
-            });
-        }
-    </script>
-
-    <style>
-        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: #f1f5f9; margin: 0; padding: 12px; color: #334155; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
-        h1 { margin: 0; color: #1e293b; font-size: 1.2rem; }
-        .user-badge { background: #e2e8f0; padding: 4px 10px; border-radius: 15px; font-weight: bold; font-size: 0.8rem; color: #334155; }
-
-        /* GRILLA DE TARJETAS */
-        .cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .card-stat { padding: 12px; border-radius: 10px; color: white; text-align: center; }
-        .card-total { background: #1e293b; }
-        .card-barbero { background: #10b981; }
-        .card-stat h3 { margin: 0; font-size: 0.9rem; opacity: 0.9; }
-        .card-stat .amount { font-size: 1.5rem; font-weight: bold; margin: 4px 0; }
-        .card-stat .subtext { font-size: 0.75rem; opacity: 0.9; line-height: 1.3; }
-
-        .input-section { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 12px; }
-        .input-group { display: flex; flex-direction: column; gap: 4px; }
-        label { font-weight: 600; font-size: 0.85rem; }
-        select, input, button { padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 1rem; width: 100%; }
-
-        .checkbox-group { display: flex; align-items: center; gap: 10px; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; cursor: pointer; }
-        .checkbox-group input { width: 18px; height: 18px; }
-
-        button.btn-primary { background-color: #10b981; color: white; border: none; cursor: pointer; font-weight: bold; font-size: 1rem; }
-        button.btn-logout { background: #ef4444; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
-
-        /* LISTA DE CORTES */
-        .history-section { margin-top: 10px; }
-        .history-section h2 { font-size: 1rem; color: #1e293b; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
-        .corte-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #f1f5f9; background: #fff; border-radius: 8px; margin-bottom: 6px; border: 1px solid #e2e8f0; }
-        .corte-info { display: flex; flex-direction: column; gap: 2px; }
-        .corte-hora { font-size: 0.75rem; color: #64748b; }
-        .corte-monto { font-weight: bold; color: #0f172a; font-size: 0.95rem; }
-        
-        /* BOTONES DE ACCIÓN */
-        .corte-acciones { display: flex; gap: 6px; align-items: center; }
-        .btn-action { width: 36px; height: 32px; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; }
-        .btn-edit { background-color: #f59e0b; }
-        .btn-delete { background-color: #ef4444; }
-
-        .badge-pago { font-size: 0.7rem; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
-        .badge-efectivo { background: #dcfce7; color: #15803d; }
-        .badge-transferencia { background: #dbeafe; color: #1e40af; }
-
-        .login-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1e293b; display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
-        .login-box { background: white; padding: 25px; border-radius: 12px; width: 100%; max-width: 360px; text-align: center; }
-    </style>
-</head>
-<body>
-
-<!-- PANTALLA DE LOGIN -->
-<div class="login-bg" id="loginScreen">
-    <div class="login-box">
-        <h2 style="margin-top:0; color:#1e293b;">✂️ Acceso Barberos</h2>
-        <div style="display:flex; flex-direction:column; gap:10px;">
-            <input type="email" id="loginEmail" placeholder="Correo electrónico...">
-            <input type="password" id="loginPassword" placeholder="Contraseña...">
-            <button class="btn-primary" style="background:#1e293b;" onclick="iniciarSesion()">Ingresar</button>
-            <p id="loginError" style="color:#ef4444; font-size:0.8rem; margin:0; display:none;"></p>
-        </div>
-    </div>
-</div>
-
-<!-- CONTENIDO PRINCIPAL -->
-<div class="container" id="mainContent" style="display: none;">
-    <div class="header">
-        <h1>✂️ Mi Panel</h1>
-        <div style="display:flex; align-items:center; gap:8px;">
-            <span class="user-badge" id="nombreUsuario">Peluquero</span>
-            <button class="btn-logout" onclick="cerrarSesion()">Salir</button>
-        </div>
-    </div>
-
-    <!-- TARJETAS DE RESUMEN -->
-    <div class="cards-grid">
-        <div class="card-stat card-total">
-            <h3>Total Hoy</h3>
-            <div class="amount" id="lblTotalHoy">$0</div>
-            <div class="subtext" id="lblDetalleTotal">0 cortes | Prom: $0<br>Ef: $0 | Tr: $0</div>
-        </div>
-
-        <div class="card-stat card-barbero">
-            <h3 id="lblNombreBarbero">Mi Total</h3>
-            <div class="amount" id="lblTotalBarbero">$0</div>
-            <div class="subtext" id="lblDetalleBarbero">0 cortes | Prom: $0<br>Ef: $0 | Tr: $0</div>
-        </div>
-    </div>
-
-    <!-- FORMULARIO CORTES -->
-    <div class="input-section">
-        <div class="input-group">
-            <label for="peluquero">Peluquero Que Registra</label>
-            <select id="peluquero"></select>
-        </div>
-        <div class="input-group">
-            <label for="monto">Monto del Corte ($)</label>
-            <input type="number" id="monto" value="10000" step="1000">
-        </div>
-        <div class="checkbox-group" onclick="document.getElementById('esTransferencia').click(); event.stopPropagation();">
-            <input type="checkbox" id="esTransferencia" onclick="event.stopPropagation();">
-            <label for="esTransferencia">💳 Transferencia / MercadoPago</label>
-        </div>
-        <button class="btn-primary" onclick="agregarCorte()">+ REGISTRAR CORTE</button>
-    </div>
-
-    <!-- LISTA DE CORTES REGISTRADOS -->
-    <div class="history-section">
-        <h2>📋 Cortes de Hoy</h2>
-        <div id="listaCortes">
-            <p style="text-align:center; color:#94a3b8; font-size:0.85rem;">Cargando registros...</p>
-        </div>
-    </div>
-</div>
-
-<script type="module">
-    import { initializeApp }Aquí tenés el código listo para reemplazar directamente en tu archivo `index.html` en GitHub. 
-
-Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un **Data URI Blob** inyectado dinámicamente desde el propio HTML. De esta manera, el navegador lo registra como un archivo estático real, permitiendo que la PWA se instale correctamente y funcione en modo offline **sin tocar, romper ni alterar ninguna de las funciones existentes ni de Firebase**.
-
-```html
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Barbería - App Barberos</title>
-
-    <!-- Integración PWA -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1e293b">
-    
-    <!-- Configuración para iOS (Safari) -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Barbero App">
-    <link rel="apple-touch-icon" href="icon.png">
-
-    <!-- Configuración para Android / Chrome Web App -->
-    <meta name="mobile-web-app-capable" content="yes">
-
-    <!-- REGISTRO DEL SERVICE WORKER (EMBEBIDO Y LISTO PARA PWA/OFFLINE) -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                const swCode = `
-                    const CACHE_NAME = 'barber-app-v1';
-                    const urlsToCache = ['./', 'manifest.json', 'icon.png'];
-
-                    self.addEventListener('install', (event) => {
-                        event.waitUntil(
-                            caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
-                        );
-                        self.skipWaiting();
-                    });
-
-                    self.addEventListener('activate', (event) => {
-                        event.waitUntil(
-                            caches.keys().then((cacheNames) => {
-                                return Promise.all(
-                                    cacheNames.map((cache) => {
-                                        if (cache !== CACHE_NAME) {
-                                            return caches.delete(cache);
-                                        }
-                                    })
-                                );
-                            })
-                        );
-                        self.clients.claim();
-                    });
-
-                    self.addEventListener('fetch', (event) => {
-                        if (event.request.method !== 'GET') return;
-                        event.respondWith(
-                            caches.match(event.request).then((cachedResponse) => {
-                                if (cachedResponse) return cachedResponse;
-                                return fetch(event.request).then((networkResponse) => {
-                                    if (
-                                        !networkResponse || 
-                                        networkResponse.status !== 200 || 
-                                        networkResponse.type !== 'basic' ||
-                                        event.request.url.includes('firestore') ||
-                                        event.request.url.includes('google.com')
-                                    ) {
-                                        return networkResponse;
-                                    }
-                                    const responseToCache = networkResponse.clone();
-                                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
-                                    return networkResponse;
-                                }).catch(() => caches.match('./'));
-                            })
-                        );
-                    });
-                `;
-
-                const blob = new Blob([swCode], { type: 'text/javascript' });
-                const blobUrl = URL.createObjectURL(blob);
-
-                navigator.serviceWorker.register(blobUrl, { scope: './' })
-                    .then(reg => console.log('Service Worker inyectado y activo correctamente'))
-                    .catch(err => console.error('Error al registrar Service Worker:', err));
-            });
-        }
-    </script>
-
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: #f1f5f9; margin: 0; padding: 12px; color: #334155; }
@@ -316,12 +74,12 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
 <div class="login-bg" id="loginScreen">
     <div class="login-box">
         <h2 style="margin-top:0; color:#1e293b;">✂️️ Acceso Barberos</h2>
-        <div style="display:flex; flex-direction:column; gap:10px;">
-            <input type="email" id="loginEmail" placeholder="Correo electrónico...">
-            <input type="password" id="loginPassword" placeholder="Contraseña...">
-            <button class="btn-primary" style="background:#1e293b;" onclick="iniciarSesion()">Ingresar</button>
+        <form id="loginForm" style="display:flex; flex-direction:column; gap:10px;">
+            <input type="email" id="loginEmail" placeholder="Correo electrónico..." required>
+            <input type="password" id="loginPassword" placeholder="Contraseña..." required>
+            <button type="submit" class="btn-primary" style="background:#1e293b;">Ingresar</button>
             <p id="loginError" style="color:#ef4444; font-size:0.8rem; margin:0; display:none;"></p>
-        </div>
+        </form>
     </div>
 </div>
 
@@ -331,7 +89,7 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
         <h1>✂️ Mi Panel</h1>
         <div style="display:flex; align-items:center; gap:8px;">
             <span class="user-badge" id="nombreUsuario">Peluquero</span>
-            <button class="btn-logout" onclick="cerrarSesion()">Salir</button>
+            <button class="btn-logout" id="btnCerrarSesion">Salir</button>
         </div>
     </div>
 
@@ -360,11 +118,11 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
             <label for="monto">Monto del Corte ($)</label>
             <input type="number" id="monto" value="10000" step="1000">
         </div>
-        <div class="checkbox-group" onclick="document.getElementById('esTransferencia').click(); event.stopPropagation();">
-            <input type="checkbox" id="esTransferencia" onclick="event.stopPropagation();">
+        <div class="checkbox-group" id="divTransferencia">
+            <input type="checkbox" id="esTransferencia">
             <label for="esTransferencia">💳 Transferencia / MercadoPago</label>
         </div>
-        <button class="btn-primary" onclick="agregarCorte()">+ REGISTRAR CORTE</button>
+        <button class="btn-primary" id="btnAgregarCorte">+ REGISTRAR CORTE</button>
     </div>
 
     <!-- LISTA DE CORTES REGISTRADOS -->
@@ -376,10 +134,11 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
     </div>
 </div>
 
+<!-- LÓGICA DE FIREBASE Y FUNCIONALIDADES DE LA APP -->
 <script type="module">
-    import { initializeApp } from "[https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js](https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js)";
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "[https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js](https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js)";
-    import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, enableIndexedDbPersistence } from "[https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js](https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js)";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDr2WkcTIkK65JAnbY1F9kRmesUgFYezW4",
@@ -394,12 +153,12 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // ACTIVAR PERSISTENCIA OFFLINE EN FIRESTORE CON MANEJO DE EXCEPCIONES
+    // Persistencia offline de Firestore
     enableIndexedDbPersistence(db).catch((err) => {
         if (err.code === 'failed-precondition') {
-            console.warn('Persistencia Firestore: Múltiples pestañas abiertas a la vez.');
+            console.warn('Persistencia Firestore: Múltiples pestañas abiertas.');
         } else if (err.code === 'unimplemented') {
-            console.warn('El navegador actual no soporta almacenamiento IndexedDB.');
+            console.warn('El navegador no soporta IndexedDB.');
         }
     });
 
@@ -407,7 +166,7 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
     window.listaBarberos = JSON.parse(localStorage.getItem('barberos_cache') || '[]');
     window.registrosHoy = JSON.parse(localStorage.getItem('registros_hoy_cache') || '[]');
 
-    // FUNCIÓN DE AUDITORÍA/LOGS
+    // Auditoría
     async function registrarLog(accion, detalle) {
         const usuarioEmail = auth.currentUser ? auth.currentUser.email : 'desconocido';
         const horaFecha = new Date().toLocaleString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit' });
@@ -420,10 +179,11 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
                 timestamp: Date.now()
             });
         } catch (e) {
-            console.error("Error guardando log de auditoría:", e);
+            console.error("Error guardando log:", e);
         }
     }
 
+    // Estado de sesión
     onAuthStateChanged(auth, (user) => {
         if (user) {
             usuarioActual = user;
@@ -441,23 +201,26 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
         }
     });
 
-    window.iniciarSesion = async function() {
+    // Manejo de formulario de Login (Evita recarga de página)
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
         const email = document.getElementById('loginEmail').value.trim();
         const pass = document.getElementById('loginPassword').value.trim();
         const errTxt = document.getElementById('loginError');
+        
         try {
             errTxt.style.display = 'none';
             await signInWithEmailAndPassword(auth, email, pass);
         } catch (err) {
-            errTxt.innerText = "Error: Usuario o clave incorrecta";
+            errTxt.innerText = "Error: Usuario o clave incorrecta (" + err.message + ")";
             errTxt.style.display = 'block';
         }
-    };
+    });
 
-    window.cerrarSesion = () => {
+    document.getElementById('btnCerrarSesion').addEventListener('click', () => {
         localStorage.clear();
         signOut(auth);
-    };
+    });
 
     function iniciarEscuchadores() {
         onSnapshot(doc(db, "configuracion", "barberos"), (docSnap) => {
@@ -496,7 +259,7 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
         if (!usuarioActual && !cachedEmail) return;
         const cortes = window.registrosHoy.filter(r => r.tipo !== 'gasto');
 
-        // 1. TOTAL GENERAL DE LA BARBERÍA (100%)
+        // 1. Total General Barbería
         const totalGeneral = cortes.reduce((acc, c) => acc + c.monto, 0);
         const cantGeneral = cortes.length;
         const promGeneral = cantGeneral > 0 ? Math.round(totalGeneral / cantGeneral) : 0;
@@ -506,13 +269,13 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
         document.getElementById('lblTotalHoy').innerText = `$${totalGeneral.toLocaleString()}`;
         document.getElementById('lblDetalleTotal').innerHTML = `${cantGeneral} cortes | Prom: $${promGeneral.toLocaleString()}<br>Ef: $${efGeneral.toLocaleString()} | Tr: $${trGeneral.toLocaleString()}`;
 
-        // 2. TOTAL DEL BARBERO CON EL 50% APLICADO
+        // 2. Total Barbero Seleccionado (50%)
         const currentEmail = usuarioActual ? usuarioActual.email : cachedEmail;
         const barberoKey = document.getElementById('peluquero').value || currentEmail.split('@')[0].toLowerCase();
         const misCortes = cortes.filter(c => c.peluquero && c.peluquero.toLowerCase() === barberoKey);
         
         const recaudadoBarbero = misCortes.reduce((acc, c) => acc + c.monto, 0);
-        const totalBarbero50 = Math.round(recaudadoBarbero * 0.5); // 50% para el barbero
+        const totalBarbero50 = Math.round(recaudadoBarbero * 0.5);
         
         const cantBarbero = misCortes.length;
         const promBarbero50 = cantBarbero > 0 ? Math.round(totalBarbero50 / cantBarbero) : 0;
@@ -525,7 +288,7 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
         document.getElementById('lblTotalBarbero').innerText = `$${totalBarbero50.toLocaleString()}`;
         document.getElementById('lblDetalleBarbero').innerHTML = `${cantBarbero} cortes | Prom: $${promBarbero50.toLocaleString()}<br>Ef: $${efBarbero50.toLocaleString()} | Tr: $${trBarbero50.toLocaleString()}`;
 
-        // 3. RENDERIZAR LISTA DE CORTES
+        // 3. Renderizar Lista
         const contenedorLista = document.getElementById('listaCortes');
         contenedorLista.innerHTML = '';
 
@@ -553,16 +316,31 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
                     <span class="corte-hora">⏰ ${item.hora || 'S/H'}</span>
                 </div>
                 <div class="corte-acciones">
-                    <button class="btn-action btn-edit" onclick="editarRegistro('${item.id}', ${item.monto}, '${item.metodo}')" title="Editar corte">✏️</button>
-                    <button class="btn-action btn-delete" onclick="borrarRegistro('${item.id}', ${item.monto})" title="Eliminar corte">✕</button>
+                    <button class="btn-action btn-edit" data-id="${item.id}" data-monto="${item.monto}" data-metodo="${item.metodo}" title="Editar corte">✏️</button>
+                    <button class="btn-action btn-delete" data-id="${item.id}" data-monto="${item.monto}" title="Eliminar corte">✕</button>
                 </div>
             `;
             contenedorLista.appendChild(div);
         });
+
+        // Asignar eventos a los botones dinámicos de editar y borrar
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const target = e.currentTarget;
+                editarRegistro(target.dataset.id, parseFloat(target.dataset.monto), target.dataset.metodo);
+            });
+        });
+
+        document.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const target = e.currentTarget;
+                borrarRegistro(target.dataset.id, parseFloat(target.dataset.monto));
+            });
+        });
     }
 
-    // REGISTRAR NUEVO CORTE
-    window.agregarCorte = async function() {
+    // Registrar corte
+    document.getElementById('btnAgregarCorte').addEventListener('click', async () => {
         const peluquero = document.getElementById('peluquero').value;
         const monto = parseFloat(document.getElementById('monto').value);
         const esTransferencia = document.getElementById('esTransferencia').checked;
@@ -580,16 +358,14 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
             timestamp: Date.now()
         });
 
-        // 📜 AUDITORÍA: Registrar la creación del corte desde la App Barberos
-        registrarLog('CREAR_CORTE', `Registró un corte de $${monto} (${medio}) asignado al peluquero: ${peluquero.toUpperCase()}`);
-
+        registrarLog('CREAR_CORTE', `Registró corte de $${monto} (${medio}) para: ${peluquero.toUpperCase()}`);
         document.getElementById('esTransferencia').checked = false;
-    };
+    });
 
-    // EDITAR CORTE (MONTO Y METODO DE PAGO)
-    window.editarRegistro = async function(idCorte, montoActual, metodoActual) {
+    // Editar corte
+    async function editarRegistro(idCorte, montoActual, metodoActual) {
         const regAnterior = window.registrosHoy.find(r => r.id === idCorte);
-        const entradaMonto = prompt(`Monto actual: $${montoActual}\n\n• Ingresá el nuevo monto (ej: 8000)\n• O ingresá el descuento en % (ej: 20%):`, montoActual);
+        const entradaMonto = prompt(`Monto actual: $${montoActual}\n\n• Ingresá el nuevo monto (ej: 8000)\n• O el descuento en % (ej: 20%):`, montoActual);
         
         if (entradaMonto === null) return;
 
@@ -598,21 +374,15 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
 
         if (entradaLimpia.endsWith('%')) {
             const porcentaje = parseFloat(entradaLimpia.replace('%', ''));
-            if (isNaN(porcentaje) || porcentaje < 0 || porcentaje > 100) {
-                alert('Porcentaje inválido');
-                return;
-            }
+            if (isNaN(porcentaje) || porcentaje < 0 || porcentaje > 100) return alert('Porcentaje inválido');
             nuevoMonto = montoActual - (montoActual * (porcentaje / 100));
         } else {
             nuevoMonto = parseFloat(entradaLimpia);
         }
 
-        if (isNaN(nuevoMonto) || nuevoMonto <= 0) {
-            alert('Monto no válido');
-            return;
-        }
+        if (isNaN(nuevoMonto) || nuevoMonto <= 0) return alert('Monto no válido');
 
-        const cambiarPago = confirm(`El medio de pago actual es: ${metodoActual.toUpperCase()}.\n\n¿Deseas cambiarlo a ${(metodoActual === 'efectivo' ? 'TRANSFERENCIA' : 'EFECTIVO')}?`);
+        const cambiarPago = confirm(`Medio actual: ${metodoActual.toUpperCase()}.\n\n¿Deseas cambiar a ${(metodoActual === 'efectivo' ? 'TRANSFERENCIA' : 'EFECTIVO')}?`);
         const nuevoMetodo = cambiarPago ? (metodoActual === 'efectivo' ? 'transferencia' : 'efectivo') : metodoActual;
 
         try {
@@ -621,34 +391,40 @@ Se añadió el Service Worker en un archivo independiente `sw.js` utilizando un 
                 metodo: nuevoMetodo
             });
 
-            // 📜 AUDITORÍA: Registrar edición desde la App Barberos
             const peluqueroNombre = regAnterior ? regAnterior.peluquero : 'desconocido';
             registrarLog('EDITAR_CORTE', `Editó corte de ${peluqueroNombre}. Antes: $${montoActual} (${metodoActual}) ➔ Ahora: $${Math.round(nuevoMonto)} (${nuevoMetodo})`);
-
         } catch (err) {
-            alert('Error al actualizar el registro: ' + err.message);
+            alert('Error al actualizar: ' + err.message);
         }
-    };
+    }
 
-    // ELIMINAR CORTE
-    window.borrarRegistro = async function(idCorte, monto) {
+    // Borrar corte
+    async function borrarRegistro(idCorte, monto) {
         const regAnterior = window.registrosHoy.find(r => r.id === idCorte);
-        const confirmar = confirm(`¿Estás seguro de eliminar este corte de $${monto.toLocaleString()}?\n\nEsta acción no se puede deshacer.`);
-        if (confirmar) {
+        if (confirm(`¿Eliminar corte de $${monto.toLocaleString()}?`)) {
             try {
                 await deleteDoc(doc(db, "cortesHoy", idCorte));
-
-                // 📜 AUDITORÍA: Registrar borrado desde la App Barberos
                 if (regAnterior) {
-                    registrarLog('ELIMINAR_CORTE', `Eliminó el corte de $${regAnterior.monto} (${regAnterior.metodo}) asignado a ${regAnterior.peluquero}`);
+                    registrarLog('ELIMINAR_CORTE', `Eliminó el corte de $${regAnterior.monto} (${regAnterior.metodo}) de ${regAnterior.peluquero}`);
                 }
             } catch (err) {
-                alert('Error al eliminar el corte: ' + err.message);
+                alert('Error al eliminar: ' + err.message);
             }
         }
-    };
+    }
 
     document.getElementById('peluquero').addEventListener('change', actualizarTarjetasYLista);
+</script>
+
+<!-- REGISTRO SEGURO DE SERVICE WORKER PARA PWA -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker registrado correctamente:', reg.scope))
+                .catch(err => console.warn('PWA Service Worker no pudo registrarse (normal si falta sw.js):', err));
+        });
+    }
 </script>
 </body>
 </html>
